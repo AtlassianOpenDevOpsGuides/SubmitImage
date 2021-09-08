@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Timeout: 30
+
+Resources:
+  SubmitImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: submitImage/
+      Handler: submit-image
+      Runtime: go1.x
+      Tracing: Active
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AdministratorAccess
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /submit-image
+            Method: GET
+      Tags:
+        Name: submitImage
+        business_unit: agile_devops_pmm
+        service_name: open_devops_image_rec
+        resource_owner: wmarusiak
+
+Outputs:
+  SubmitImageAPI:
+    Description: "API Gateway endpoint URL for Prod environment for Submit Image Function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/submit-image/"
+  SubmitImageFunction:
+    Description: "First Lambda Function ARN"
+    Value: !GetAtt SubmitImageFunction.Arn
+  SubmitImageFunctionIamRole:
+    Description: "Implicit IAM Role created for Submit Image function"
+    Value: !GetAtt SubmitImageFunctionRole.Arn
+  SubmitImageFunctionName:
+    Description: "SubmitImage function name"
+    Value: !Ref SubmitImageFunction
+    Export:
+      Name: SubmitImageFunctionName
