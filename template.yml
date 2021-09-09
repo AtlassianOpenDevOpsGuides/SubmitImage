@@ -23,11 +23,6 @@ Resources:
           Properties:
             Path: /submit-image
             Method: GET
-      Tags:
-        Name: submitImage
-        business_unit: agile_devops_pmm
-        service_name: open_devops_image_rec
-        resource_owner: wmarusiak
 
 Outputs:
   SubmitImageAPI:
