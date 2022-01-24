@@ -1,0 +1,53 @@
+definitions:
+  steps:
+    -step: &rununittests
+        name: run unit tests
+        image: golang:buster
+        script:
+          - cd submitImage
+          - go test ./opendevopslambda/...
+
+    -step: &runsnyktest
+        name: run snyk test
+        image: snyk/snyk:golang
+        script:
+          - snyk auth $SNYK_TOKEN
+          - cd submitImage
+          - go mod graph
+          - snyk test
+
+    -step: &deploy-test-usw1
+        name: Deploy Test us-west-1
+        image: amazon/aws-sam-cli-build-image-provided
+        script:
+          - curl https://dl.google.com/go/go1.16.3.linux-amd64.tar.gz -o go1.16.3.tar.gz
+          - rm -rf /usr/local/go
+          - tar -C /usr/local -xzf go1.16.3.tar.gz
+          - export PATH=$PATH:/usr/local/go/bin
+          - go version
+          - make
+          - ls -lah /opt/atlassian/pipelines/agent/build/build/
+          - pipe: atlassian/aws-sam-deploy:1.2.0
+            variables:
+              AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+              AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+              AWS_DEFAULT_REGION: 'us-west-1'
+              STACK_NAME: 'OpenDevOpsSubmitImage'
+              CAPABILITIES: [ 'CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM', 'CAPABILITY_AUTO_EXPAND' ]
+              TEMPLATE: 'https://s3.amazonaws.com/open-devops-code-us-west-1-${AWS_ACCOUNT_ID}/submit-image-packaged.yml'
+              WAIT: 'true'
+              DEBUG: 'true'
+              S3_BUCKET: 'open-devops-code-us-west-1-${AWS_ACCOUNT_ID}'
+              SAM_TEMPLATE: 'build/template.yaml'
+              STACK_PARAMETERS: '[{
+                "ParameterKey": "LaunchDarklySDKKey",
+                "ParameterValue": "${ld_test_env}"
+              }]'
+
+pipelines:
+  default:
+    - step: *rununittests
+    - step: *runsnyktest
+    - step:
+        <<: *deploy-test-usw1
+        deployment: Test us-west-1

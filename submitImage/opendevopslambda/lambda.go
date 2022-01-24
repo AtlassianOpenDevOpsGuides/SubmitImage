@@ -16,7 +16,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+  "os"
 	"strings"
+  "time"
+  "gopkg.in/launchdarkly/go-sdk-common.v2/lduser"
+  ld "gopkg.in/launchdarkly/go-server-sdk.v5"
 )
 
 type Dependency struct {
@@ -24,9 +28,32 @@ type Dependency struct {
 	DepDynamoDB dynamodbiface.DynamoDBAPI
 }
 
-// this is a simple change
-
 var bucketRootName = "open-devops-images"
+
+func getLaunchDarklyFlags(username string) (bool, error) {
+  client, _ := ld.MakeClient(os.Getenv("LaunchDarklySDKKey"), 5 * time.Second)
+  flagKey := "SubmitImageDemoFeature"
+
+  userUuid, uuidErr := uuid.NewRandom()
+  if uuidErr != nil {
+		return false, uuidErr
+	}
+
+  var user lduser.User
+  if(username == "") {
+    user = lduser.NewAnonymousUser(userUuid.String())
+  } else {
+    user = lduser.NewUser(username)
+  }
+
+  showFeature, _ := client.BoolVariation(flagKey, user, false)
+
+  if showFeature {
+    return true, nil
+  } else {
+    return false, nil
+  }
+}
 
 func (d *Dependency) processRequest(imageUrl string, region string, aws_account_id string) (string, error) {
 	response, err := http.Get(imageUrl)
@@ -38,6 +65,18 @@ func (d *Dependency) processRequest(imageUrl string, region string, aws_account_
 	if response.StatusCode != 200 {
 		return "", errors.New(fmt.Sprintf("response.StatusCode %d != 200\n", response.StatusCode))
 	}
+
+  flagVal, flagErr  := getLaunchDarklyFlags("")
+  if flagErr != nil {
+    return "", flagErr
+  }
+  fmt.Println("DEMO flagVal for anonymous user: ", flagVal)
+
+  flagVal, flagErr  = getLaunchDarklyFlags("AtlassianTestUser@atlassian.com")
+  if flagErr != nil {
+    return "", flagErr
+  }
+  fmt.Println("DEMO flagVal for AtlassianTestUser@atlassian.com: ", flagVal)
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
